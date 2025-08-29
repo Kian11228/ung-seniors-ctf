@@ -1,0 +1,1309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UNG Capstone CTF — Operation North Guard (Solo)</title>
+  <style>
+    :root{
+      --ung-blue:#003DA5;   /* UNG navy */
+      --ung-gold:#B9975B;   /* UNG gold */
+      --hack-green:#00FF9C; /* neon terminal green */
+      --ink:#05070d; --ink2:#0a1022; --muted:#90A3C0;
+      --card: rgba(0,16,40,0.72); --card-2: rgba(0,24,70,0.55); --border: rgba(5,45,120,0.45);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color:#e6eaff;
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(0,255,156,0.10), transparent 60%),
+                 radial-gradient(800px 400px at 90% 120%, rgba(185,151,91,0.10), transparent 60%),
+                 linear-gradient(180deg, var(--ink) 0%, #0b1430 60%, #070b16 100%);
+      overflow-x:hidden;
+    }
+    .crt::before{content:""; position:fixed; inset:0; pointer-events:none; background:
+      repeating-linear-gradient(to bottom, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px);
+      z-index:5}
+    .gridlines{position:fixed; inset:0; pointer-events:none; opacity:.30; background-image:
+      linear-gradient(rgba(0,61,165,0.20) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,61,165,0.20) 1px, transparent 1px);
+      background-size:34px 34px; filter: drop-shadow(0 0 8px rgba(0,255,156,0.25));
+      animation:gridFloat 16s linear infinite}
+    @keyframes gridFloat{ from{transform:translateY(0)} to{transform:translateY(-34px)} }
+
+    header{position:sticky; top:0; backdrop-filter:saturate(1.2) blur(6px); background:rgba(0,0,0,.35); border-bottom:1px solid #1f2937; z-index:6}
+    .wrap{max-width:1180px; margin:0 auto; padding:16px}
+    .brand{display:flex; gap:12px; align-items:center}
+    .crest{width:36px; height:36px; display:grid; place-items:center; border-radius:10px; border:1px solid var(--border); background:linear-gradient(135deg, var(--card), var(--card-2)); box-shadow:0 0 12px rgba(0,255,156,0.18)}
+    .title{color:var(--hack-green); text-shadow:0 0 6px var(--hack-green), 0 0 16px var(--hack-green); font-weight:700; letter-spacing:.04em}
+    .badge{display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid #374151; color:#dbe2ff; font-size:12px}
+    .badge.gold{background:var(--ung-gold); color:#000}
+
+    .tabs{display:flex; gap:8px; flex-wrap:wrap}
+    .tabbtn{background:#0b1326; color:#cbd5e1; border:1px solid #334155; border-radius:12px; padding:10px 14px; cursor:pointer; transition:all 0.2s}
+    .tabbtn:hover{border-color:#4b5563; color:#f1f5f9}
+    .tabbtn.active{border-color:var(--ung-gold); color:#fff; box-shadow:0 0 10px rgba(185,151,91,0.35)}
+
+    .card{background:linear-gradient(180deg, var(--card), rgba(0,24,70,0.45)); border:1px solid var(--border); border-radius:16px; padding:16px}
+    .card + .card{margin-top:16px}
+
+    .btn{appearance:none; border:1px solid rgba(0,255,156,0.35); background:linear-gradient(180deg, var(--ung-blue), #0a2f7a); color:white; padding:10px 14px; border-radius:12px; cursor:pointer; box-shadow:0 0 12px rgba(0,255,156,0.22); transition:all 0.2s}
+    .btn:hover:not(:disabled){box-shadow:0 0 18px rgba(0,255,156,0.35); filter:saturate(1.1); transform:translateY(-1px)}
+    .btn:disabled{opacity:0.6; cursor:not-allowed}
+    .btn.secondary{background:transparent}
+    .btn.secondary:hover{background:rgba(0,255,156,0.1)}
+    .btn.danger{background:#7f1d1d; border-color:#ef4444}
+    .btn.success{background:#065f46; border-color:#10b981}
+
+    label{font-size:12px; color:#cbd5e1}
+    input, textarea{width:100%; background:#0b1326; color:#e6eaff; border:1px solid #334155; border-radius:10px; padding:10px; transition:border-color 0.2s}
+    input:focus, textarea:focus{outline:none; border-color:var(--hack-green)}
+    textarea{min-height:140px; resize:vertical}
+
+    .muted{color:var(--muted)}
+    .row{display:grid; grid-template-columns:1fr; gap:16px}
+    @media(min-width:980px){ .row{grid-template-columns:1fr 1fr} }
+
+    table{width:100%; border-collapse:collapse; font-size:14px}
+    th, td{border-bottom:1px solid #1f2937; padding:8px 6px; text-align:left}
+    .pill{padding:2px 8px; border-radius:999px; background:#0b1326; border:1px solid #374151}
+    .pill.solved{background:#065f46; border-color:#10b981; color:#fff}
+    .pill.unsolved{background:#7f1d1d; border-color:#ef4444; color:#fff}
+
+    footer{color:#8AA8FF; text-align:center; font-size:12px; margin:36px 0 12px}
+    code{background:#0b1326; padding:2px 4px; border-radius:6px; color:var(--hack-green)}
+    .hidden{display:none}
+
+    .progress-bar{width:100%; height:8px; background:#1f2937; border-radius:4px; overflow:hidden; margin:8px 0}
+    .progress-fill{height:100%; background:linear-gradient(90deg, var(--hack-green), var(--ung-gold)); transition:width 0.5s ease}
+
+    .notification{position:fixed; top:80px; right:20px; z-index:10; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 16px; box-shadow:0 4px 12px rgba(0,0,0,0.3); transform:translateX(400px); transition:transform 0.3s ease}
+    .notification.show{transform:translateX(0)}
+    .notification.success{border-color:#10b981; background:rgba(5,95,70,0.9)}
+    .notification.error{border-color:#ef4444; background:rgba(127,29,29,0.9)}
+
+    .hint-toggle{cursor:pointer; user-select:none; transition:color 0.2s}
+    .hint-toggle:hover{color:var(--hack-green)}
+
+    .timer{font-family:monospace; font-size:14px; color:var(--hack-green)}
+
+    @keyframes pulse{0%, 100%{opacity:1} 50%{opacity:0.5}}
+    .pulse{animation:pulse 2s infinite}
+
+    .challenge-locked{opacity:0.6; pointer-events:none}
+    .challenge-locked::after{content:"🔒 Locked"; position:absolute; top:10px; right:10px; background:#7f1d1d; color:#fff; padding:4px 8px; border-radius:6px; font-size:10px}
+  </style>
+</head>
+<body class="crt">
+  <div class="gridlines"></div>
+  <div id="notification" class="notification"></div>
+  
+  <header>
+    <div class="wrap" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <div class="brand">
+        <div class="crest" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M4 4h16v6c0 6.627-5.373 10-8 10S4 16.627 4 10V4z" stroke="var(--ung-gold)" stroke-width="1.5"/>
+            <path d="M8 8h8M8 11h8M8 14h5" stroke="var(--hack-green)" stroke-width="1.2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="title">UNG Capstone CTF — Operation North Guard</div>
+          <div class="muted" style="font-size:12px">Solo Mode • No teams • Individual scoring</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center">
+        <div class="timer" id="sessionTimer">Session: 00:00:00</div>
+        <div id="studentInfo" class="badge" style="background:var(--ung-blue); border-color:var(--hack-green)">
+          <span id="studentDisplay">Click to set name</span>
+        </div>
+        <span id="scoreBadge" class="badge gold">Score: 0</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="tabs" style="margin-bottom:12px">
+      <button class="tabbtn active" data-tab="overview">Overview</button>
+      <button class="tabbtn" data-tab="challenges">Challenges</button>
+      <button class="tabbtn" data-tab="scoreboard">Scoreboard</button>
+      <button class="tabbtn" data-tab="hints">Hints</button>
+      <button class="tabbtn" data-tab="admin">Admin</button>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section id="tab-overview">
+      <div class="card" id="studentSetupCard">
+        <h2 class="title" style="margin:0 0 8px">👤 Student Information</h2>
+        <div class="row" style="align-items:end">
+          <div>
+            <label>Full Name *</label>
+            <input id="studentName" placeholder="Enter your full name" style="margin-top:4px" />
+          </div>
+          <div>
+            <label>Student ID (Optional)</label>
+            <input id="studentId" placeholder="e.g., 900123456" style="margin-top:4px" />
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn" id="saveStudentInfo">💾 Save Information</button>
+          <button class="btn secondary" id="clearStudentInfo" style="margin-left:8px">🗑️ Clear</button>
+        </div>
+        <div class="muted" style="font-size:12px; margin-top:8px">
+          ℹ️ Your information is stored locally and included in progress exports
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2 class="title" style="margin:0 0 8px">🎯 Mission Brief</h2>
+        <p class="muted">North Guard Robotics reports suspicious activity. As a solo hybrid red/blue responder, investigate, contain, remediate, and report.</p>
+        <div class="progress-bar">
+          <div id="overallProgress" class="progress-fill" style="width:0%"></div>
+        </div>
+        <p class="muted" style="font-size:12px">Progress: <span id="progressText">0/8 challenges completed</span></p>
+      </div>
+      <div class="row">
+        <div class="card">
+          <strong>Coverage Areas</strong>
+          <ul class="muted">
+            <li>Networking & Protocol Analysis</li>
+            <li>Cryptography & Cipher Breaking</li>
+            <li>Digital Forensics & Incident Response</li>
+            <li>Malware Analysis / Reverse Engineering</li>
+            <li>Secure Software Development</li>
+            <li>Cloud Security & Misconfigurations</li>
+            <li>Governance, Risk, Compliance (GRC)</li>
+            <li>Penetration Testing / Offensive Security</li>
+          </ul>
+        </div>
+        <div class="card">
+          <strong>Competition Format</strong>
+          <ul class="muted">
+            <li>Individual competition only</li>
+            <li>Sequential challenge unlocking</li>
+            <li>Points + time bonuses available</li>
+            <li>Hints available with point deductions</li>
+            <li>Progress saved locally</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHALLENGES -->
+    <section id="tab-challenges" class="hidden">
+      <div class="row">
+        <!-- Stage 1: Network / PCAP -->
+        <div class="card" id="challenge-net-pcap" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">Networking</span> <strong style="margin-left:8px">Stage 1 — PCAP Analysis</strong></div>
+            <div class="muted">150 pts • <span id="status-net-pcap" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Analyze network traffic for DNS tunneling, suspicious FTP uploads, and HTTP C2 beacons. Extract embedded credentials from the communication.</p>
+          <div class="muted" style="margin:8px 0; font-size:12px">💡 The flag is hidden within a DNS query payload</div>
+          <button class="btn secondary" id="download-pcap">📦 Download PCAP Sample</button>
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-net-pcap" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="net-pcap">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 2: Crypto -->
+        <div class="card" id="challenge-crypto" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">Crypto</span> <strong style="margin-left:8px">Stage 2 — Cryptographic Challenges</strong></div>
+            <div class="muted">200 pts • <span id="status-crypto" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Multi-stage cryptography: Break weak RSA encryption, decode a substitution cipher, and extract data from PNG steganography.</p>
+          <div class="card" style="background:#1a1a2e">
+            <div class="muted" style="font-family:monospace; font-size:12px">
+              <div>RSA Parameters:</div>
+              <div>n = <span id="rsa-n" style="color:var(--hack-green)">116208979629572454889836221838888317862228800858112062077035879938233288902389</span></div>
+              <div>e = <span id="rsa-e" style="color:var(--hack-green)">65537</span></div>
+              <div>c = <span id="rsa-c" style="color:var(--hack-green)">111285256090978928662438799601358523184684202637866398366939217034899029281640</span></div>
+            </div>
+          </div>
+          <details class="card" style="margin-top:8px">
+            <summary class="hint-toggle">💡 Show Cryptographic Hints</summary>
+            <div style="margin-top:8px">
+              <p class="muted">1. Factor n using small prime techniques (try online factorization tools)</p>
+              <p class="muted">2. Compute private key: d ≡ e⁻¹ (mod φ(n))</p>
+              <p class="muted">3. Decrypt: m = c^d mod n, then convert to ASCII</p>
+              <p class="muted">4. The result leads to additional cipher and steganography steps</p>
+            </div>
+          </details>
+          <div class="card" style="margin-top:8px">
+            <label>Submit Final Crypto Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-crypto" placeholder="flag{crypto_broken_successfully}" />
+              <button class="btn" data-flag-id="crypto">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 3: Disk Forensics -->
+        <div class="card" id="challenge-disk" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">Forensics</span> <strong style="margin-left:8px">Stage 3 — Disk Image Analysis</strong></div>
+            <div class="muted">175 pts • <span id="status-disk" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Examine an E01 disk image to recover deleted files, analyze browser history, and identify Registry-based persistence mechanisms.</p>
+          <div class="muted" style="margin:8px 0; font-size:12px">🔍 Use tools like Autopsy, FTK Imager, or similar forensic software</div>
+          <button class="btn secondary" id="download-e01">📦 Download E01 Image Sample</button>
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-disk" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="disk">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 4: Memory Forensics -->
+        <div class="card" id="challenge-mem" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">Malware</span> <strong style="margin-left:8px">Stage 4 — Memory Dump Analysis</strong></div>
+            <div class="muted">175 pts • <span id="status-mem" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Use Volatility framework to detect process injection, extract malware artifacts, and decrypt C2 server configuration.</p>
+          <div class="muted" style="margin:8px 0; font-size:12px">⚡ Recommended: Volatility 3 with appropriate Windows profile</div>
+          <button class="btn secondary" id="download-memory">📦 Download Memory Dump Sample</button>
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-mem" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="mem">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 5: Web Application Security -->
+        <div class="card" id="challenge-web-sqli" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">AppSec</span> <strong style="margin-left:8px">Stage 5 — Web Application Testing</strong></div>
+            <div class="muted">150 pts • <span id="status-web-sqli" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Identify and exploit common web vulnerabilities: SQL injection, XSS, and input validation bypass.</p>
+          
+          <!-- Interactive SQLi Demo -->
+          <div class="card" style="background:#1a1a2e; margin:12px 0">
+            <div style="margin-bottom:8px"><strong>🎯 Live Demo: SQL Injection Test</strong></div>
+            <div class="row" style="gap:8px">
+              <input id="sqliUser" placeholder="Username" />
+              <input id="sqliPass" placeholder="Password" type="password" />
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px">
+              <button class="btn" id="loginBtn">🔐 Attempt Login</button>
+              <button class="btn secondary" id="clearLogBtn">🗑️ Clear Log</button>
+            </div>
+            <textarea id="sqliLog" readonly style="margin-top:8px; font-family:monospace; background:#0a0a1a"></textarea>
+          </div>
+          
+          <div class="muted" style="font-size:12px; margin:8px 0">
+            💡 Try classic payloads: <code>' OR '1'='1</code> or <code>admin'--</code>
+          </div>
+          
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag (from successful exploitation)</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-web-sqli" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="web-sqli">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 6: Cloud Security -->
+        <div class="card" id="challenge-cloud-s3" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">Cloud</span> <strong style="margin-left:8px">Stage 6 — Cloud Misconfiguration</strong></div>
+            <div class="muted">125 pts • <span id="status-cloud-s3" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Discover and exploit misconfigured AWS S3 bucket permissions, extract sensitive data, and recommend proper IAM policies.</p>
+          <div class="muted" style="margin:8px 0; font-size:12px">☁️ Focus on: Bucket enumeration, object listing, and data exfiltration</div>
+          
+          <div class="card" style="background:#1a1a2e">
+            <div style="margin-bottom:8px"><strong>🎯 Target Information</strong></div>
+            <code style="display:block; margin:4px 0">Bucket: northguard-backup-configs-2024</code>
+            <code style="display:block; margin:4px 0">Region: us-east-1</code>
+            <code style="display:block; margin:4px 0">Hint: Look for config.json in the root</code>
+          </div>
+          
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-cloud-s3" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="cloud-s3">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 7: Red Team VM -->
+        <div class="card" id="challenge-red-vm" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">OffSec</span> <strong style="margin-left:8px">Stage 7 — Vulnerable System</strong></div>
+            <div class="muted">200 pts • <span id="status-red-vm" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Perform reconnaissance, exploit vulnerable services, escalate privileges, and achieve root access on the target system.</p>
+          <div class="muted" style="margin:8px 0; font-size:12px">🎯 Target: 192.168.1.100 (in provided VM environment)</div>
+          <button class="btn secondary" id="download-vm">📦 Download Vulnerable VM</button>
+          
+          <div class="card" style="background:#1a1a2e; margin:12px 0">
+            <div style="margin-bottom:8px"><strong>🔍 Recommended Approach</strong></div>
+            <div class="muted" style="font-size:12px">
+              1. Port scan with nmap<br>
+              2. Service enumeration<br>
+              3. Vulnerability research<br>
+              4. Exploit development/usage<br>
+              5. Privilege escalation<br>
+              6. Extract flag from /root/flag.txt
+            </div>
+          </div>
+          
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-red-vm" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="red-vm">Submit</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 8: GRC Executive Summary -->
+        <div class="card" id="challenge-grc-nist" style="position:relative">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <div><span class="pill">GRC</span> <strong style="margin-left:8px">Stage 8 — Executive Summary</strong></div>
+            <div class="muted">100 pts • <span id="status-grc-nist" class="pill unsolved">Unsolved</span></div>
+          </div>
+          <p class="muted">Create a comprehensive executive summary mapping all discovered vulnerabilities to NIST Cybersecurity Framework and ISO 27001 controls.</p>
+          
+          <div class="card" style="background:#1a1a2e">
+            <div style="margin-bottom:8px"><strong>📋 Required Deliverables</strong></div>
+            <div class="muted" style="font-size:12px">
+              • Executive summary (1-2 pages)<br>
+              • Risk assessment matrix<br>
+              • NIST CSF mapping<br>
+              • Remediation timeline<br>
+              • Business impact analysis
+            </div>
+          </div>
+          
+          <div class="card" style="margin-top:8px">
+            <label>Submit Flag</label>
+            <div style="display:flex; gap:8px; margin-top:6px">
+              <input id="flag-grc-nist" placeholder="flag{...}" />
+              <button class="btn" data-flag-id="grc-nist">Submit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCOREBOARD -->
+    <section id="tab-scoreboard" class="hidden">
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+          <strong>Personal Progress</strong>
+          <div style="display:flex; gap:8px">
+            <button class="btn secondary" id="exportCsvBtn">📊 Export CSV</button>
+            <button class="btn secondary" id="exportJsonBtn">📋 Export JSON</button>
+          </div>
+        </div>
+        <div style="overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Challenge</th>
+                <th>Points</th>
+                <th>Completed</th>
+                <th>Time Bonus</th>
+              </tr>
+            </thead>
+            <tbody id="scoreRows">
+              <tr><td colspan="4" class="muted">No challenges completed yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:16px; padding:12px; background:#1a1a2e; border-radius:8px">
+          <div><strong>Session Statistics</strong></div>
+          <div class="muted" style="margin-top:4px">
+            Student: <span id="scoreboardStudentName">Not set</span><br>
+            Student ID: <span id="scoreboardStudentId">Not provided</span><br>
+            Total Score: <span id="totalScore">0</span> points<br>
+            Challenges Solved: <span id="challengesSolved">0</span>/8<br>
+            Session Time: <span id="sessionTime">00:00:00</span><br>
+            Average Time per Challenge: <span id="avgTime">--:--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HINTS -->
+    <section id="tab-hints" class="hidden">
+      <div class="card">
+        <h2 style="margin:0 0 12px">💡 Challenge Hints</h2>
+        <p class="muted">Hints are available for each challenge. Using a hint will deduct 10-25 points from the challenge value.</p>
+      </div>
+      
+      <div id="hintsContainer">
+        <!-- Dynamic hints will be populated here -->
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="tab-admin" class="hidden">
+      <div class="row">
+        <div class="card">
+          <strong>Session Management</strong>
+          <p class="muted">Individual competition mode. All progress is saved locally on your device.</p>
+          <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+            <button class="btn danger" id="resetBtn">🔄 Reset Progress</button>
+            <button class="btn secondary" id="backupBtn">💾 Backup Data</button>
+            <button class="btn secondary" id="restoreBtn">📂 Restore Data</button>
+          </div>
+          <input type="file" id="restoreFile" accept=".json" style="display:none">
+        </div>
+        <div class="card">
+          <strong>System Diagnostics</strong>
+          <p class="muted">Run diagnostic checks to verify platform functionality</p>
+          <button class="btn" id="runTestsBtn">🔧 Run Diagnostics</button>
+          <div id="testResults" style="margin-top:12px"></div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <strong>Development Mode</strong>
+        <p class="muted">Quick access for testing and development purposes</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px">
+          <button class="btn secondary" id="unlockAllBtn">🔓 Unlock All Challenges</button>
+          <button class="btn secondary" id="solveFirstBtn">✅ Solve First Challenge</button>
+          <button class="btn secondary" id="addRandomScoreBtn">🎲 Add Random Score</button>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div style="margin-bottom:8px">Built for UNG Cybersecurity Capstone Program</div>
+      <div class="title" style="font-size:12px">Stay vigilant. 🛡️</div>
+    </footer>
+  </main>
+
+  <script>
+  // ===== Enhanced Data & Configuration =====
+  const DEMO_FLAGS = {
+    "net-pcap": "flag{dns_exfiltration_detected_c2_beacon}",
+    "crypto": "flag{rsa_factored_cipher_solved_stego_extracted}",
+    "disk": "flag{deleted_file_recovered_persistence_found}",
+    "mem": "flag{process_injection_c2_config_decrypted}",
+    "web-sqli": "flag{authentication_bypass_successful}",
+    "cloud-s3": "flag{s3_misconfiguration_data_exfiltrated}",
+    "red-vm": "flag{root_privilege_escalation_complete}",
+    "grc-nist": "flag{executive_summary_nist_mapping_complete}"
+  };
+
+  const CHALLENGES = [
+    { id:"net-pcap", title:"Stage 1 — PCAP Analysis", points:150, category:"Networking" },
+    { id:"crypto", title:"Stage 2 — Cryptographic Challenges", points:200, category:"Cryptography" },
+    { id:"disk", title:"Stage 3 — Disk Image Analysis", points:175, category:"Digital Forensics" },
+    { id:"mem", title:"Stage 4 — Memory Dump Analysis", points:175, category:"Malware Analysis" },
+    { id:"web-sqli", title:"Stage 5 — Web Application Testing", points:150, category:"Application Security" },
+    { id:"cloud-s3", title:"Stage 6 — Cloud Misconfiguration", points:125, category:"Cloud Security" },
+    { id:"red-vm", title:"Stage 7 — Vulnerable System", points:200, category:"Offensive Security" },
+    { id:"grc-nist", title:"Stage 8 — Executive Summary", points:100, category:"Governance & Risk" }
+  ];
+
+  const HINTS = {
+    "net-pcap": [
+      { text: "Look for DNS queries with unusually long subdomains - they often contain encoded data", cost: 15 },
+      { text: "Use Wireshark filters: dns.qry.name contains specific strings or ftp-data", cost: 10 },
+      { text: "Check HTTP POST requests for beacon patterns and base64 encoded payloads", cost: 20 }
+    ],
+    "crypto": [
+      { text: "The RSA modulus n can be factored using online tools like factordb.com", cost: 25 },
+      { text: "After RSA decryption, you'll get text that needs further cipher analysis", cost: 15 },
+      { text: "The final step involves LSB steganography in a PNG image", cost: 20 }
+    ],
+    "disk": [
+      { text: "Use Autopsy or FTK Imager to mount the E01 image and examine deleted files", cost: 20 },
+      { text: "Check browser history databases (places.sqlite for Firefox, History for Chrome)", cost: 15 },
+      { text: "Look in Windows Registry HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", cost: 15 }
+    ],
+    "mem": [
+      { text: "Start with 'volatility pslist' to see running processes, look for suspicious ones", cost: 20 },
+      { text: "Use 'malfind' plugin to detect process injection and memory anomalies", cost: 15 },
+      { text: "Extract process memory dumps and search for C2 configuration strings", cost: 25 }
+    ],
+    "web-sqli": [
+      { text: "Try union-based injection: ' UNION SELECT 1,2,3-- to identify injectable parameters", cost: 10 },
+      { text: "Classic authentication bypass: admin' OR '1'='1'-- in username field", cost: 15 },
+      { text: "Look for error messages that reveal database structure and table names", cost: 20 }
+    ],
+    "cloud-s3": [
+      { text: "Use AWS CLI: aws s3 ls s3://bucket-name --no-sign-request to test anonymous access", cost: 15 },
+      { text: "Try common AWS tools like S3Scanner or bucket enumeration techniques", cost: 20 },
+      { text: "Look for .json, .yml, .config files that might contain sensitive data", cost: 10 }
+    ],
+    "red-vm": [
+      { text: "Start with nmap -sV -sC target_ip for service version detection", cost: 20 },
+      { text: "Research CVEs for discovered service versions, focus on RCE vulnerabilities", cost: 25 },
+      { text: "After initial access, check 'sudo -l' and look for SUID binaries", cost: 15 }
+    ],
+    "grc-nist": [
+      { text: "Map vulnerabilities to NIST CSF categories: Identify, Protect, Detect, Respond, Recover", cost: 15 },
+      { text: "Include business impact analysis with likelihood vs impact matrix", cost: 10 },
+      { text: "Provide specific ISO 27001 control references (A.12.1.1, A.14.2.1, etc.)", cost: 20 }
+    ]
+  };
+
+  // ===== Storage Keys =====
+  const LS_SOLVES = "ung_ctf_enhanced_solves";
+  const LS_HINTS_USED = "ung_ctf_enhanced_hints";
+  const LS_SESSION_START = "ung_ctf_session_start";
+  const LS_UNLOCKED = "ung_ctf_unlocked_challenges";
+  const LS_STUDENT_INFO = "ung_ctf_student_info";
+
+  // ===== Utility Functions =====
+  const hasFlagFormat = s => /^flag\{[ -~]{1,120}\}$/.test(s);
+  const fmtTime = d => new Date(d).toLocaleString();
+  const fmtDuration = ms => {
+    const seconds = Math.floor(ms / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+  };
+
+  // ===== State Management =====
+  let solves = [];
+  let hintsUsed = {};
+  let sessionStart = Date.now();
+  let unlockedChallenges = ["net-pcap"]; // First challenge always unlocked
+  let studentInfo = { name: "", id: "" };
+
+  // Load state from localStorage
+  function loadState() {
+    try {
+      const savedSolves = JSON.parse(localStorage.getItem(LS_SOLVES) || "[]");
+      if (Array.isArray(savedSolves)) solves = savedSolves;
+      
+      const savedHints = JSON.parse(localStorage.getItem(LS_HINTS_USED) || "{}");
+      hintsUsed = savedHints;
+      
+      const savedSession = localStorage.getItem(LS_SESSION_START);
+      if (savedSession) sessionStart = parseInt(savedSession);
+      else {
+        sessionStart = Date.now();
+        localStorage.setItem(LS_SESSION_START, sessionStart.toString());
+      }
+      
+      const savedUnlocked = JSON.parse(localStorage.getItem(LS_UNLOCKED) || '["net-pcap"]');
+      if (Array.isArray(savedUnlocked)) unlockedChallenges = savedUnlocked;
+      
+      const savedStudentInfo = JSON.parse(localStorage.getItem(LS_STUDENT_INFO) || '{"name":"","id":""}');
+      if (savedStudentInfo && typeof savedStudentInfo === 'object') {
+        studentInfo = savedStudentInfo;
+      }
+    } catch (e) {
+      console.warn("Error loading state:", e);
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem(LS_SOLVES, JSON.stringify(solves));
+    localStorage.setItem(LS_HINTS_USED, JSON.stringify(hintsUsed));
+    localStorage.setItem(LS_UNLOCKED, JSON.stringify(unlockedChallenges));
+    localStorage.setItem(LS_STUDENT_INFO, JSON.stringify(studentInfo));
+  }
+
+  // ===== Notification System =====
+  function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, 3000);
+  }
+
+  // ===== Challenge Management =====
+  function unlockNextChallenge() {
+    const currentIndex = unlockedChallenges.length - 1;
+    if (currentIndex < CHALLENGES.length - 1) {
+      const nextChallenge = CHALLENGES[currentIndex + 1];
+      if (!unlockedChallenges.includes(nextChallenge.id)) {
+        unlockedChallenges.push(nextChallenge.id);
+        showNotification(`🔓 ${nextChallenge.title} unlocked!`, 'success');
+        saveState();
+        render();
+      }
+    }
+  }
+
+  function isChallengeUnlocked(challengeId) {
+    return unlockedChallenges.includes(challengeId);
+  }
+
+  function getChallengePoints(challengeId, useTime = true) {
+    const challenge = CHALLENGES.find(c => c.id === challengeId);
+    if (!challenge) return 0;
+    
+    let points = challenge.points;
+    
+    // Subtract hint costs
+    const challengeHints = hintsUsed[challengeId] || [];
+    const hintCost = challengeHints.reduce((sum, hintIndex) => {
+      const hint = HINTS[challengeId]?.[hintIndex];
+      return sum + (hint?.cost || 0);
+    }, 0);
+    
+    points -= hintCost;
+    
+    // Time bonus (optional)
+    if (useTime) {
+      const solve = solves.find(s => s.id === challengeId);
+      if (solve) {
+        const solveTime = new Date(solve.when).getTime();
+        const timeFromStart = solveTime - sessionStart;
+        const hoursElapsed = timeFromStart / (1000 * 60 * 60);
+        
+        // Bonus points for fast completion (decreasing over time)
+        if (hoursElapsed < 1) points += 50;
+        else if (hoursElapsed < 2) points += 30;
+        else if (hoursElapsed < 4) points += 10;
+      }
+    }
+    
+    return Math.max(points, 0);
+  }
+
+  // ===== UI Rendering =====
+  function render() {
+    renderScoreboard();
+    renderChallengeStatus();
+    renderProgress();
+    renderHints();
+    renderStudentInfo();
+    updateTimer();
+  }
+
+  function renderScoreboard() {
+    const totalScore = solves.reduce((sum, solve) => sum + getChallengePoints(solve.id), 0);
+    document.getElementById('scoreBadge').textContent = `Score: ${totalScore}`;
+    document.getElementById('totalScore').textContent = totalScore;
+    document.getElementById('challengesSolved').textContent = solves.length;
+    
+    const scoreRows = document.getElementById('scoreRows');
+    scoreRows.innerHTML = '';
+    
+    if (solves.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="4" class="muted">No challenges completed yet.</td>';
+      scoreRows.appendChild(tr);
+    } else {
+      solves.forEach(solve => {
+        const challenge = CHALLENGES.find(c => c.id === solve.id);
+        const points = getChallengePoints(solve.id);
+        const solveTime = new Date(solve.when).getTime();
+        const timeFromStart = solveTime - sessionStart;
+        const bonus = points - (challenge.points - (hintsUsed[solve.id] || []).reduce((sum, hi) => sum + (HINTS[solve.id]?.[hi]?.cost || 0), 0));
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${challenge.title}</td>
+          <td>${points}</td>
+          <td>${fmtTime(solve.when)}</td>
+          <td>${bonus > 0 ? `+${bonus}` : '0'}</td>
+        `;
+        scoreRows.appendChild(tr);
+      });
+    }
+    
+    // Update session stats
+    const sessionTime = Date.now() - sessionStart;
+    document.getElementById('sessionTime').textContent = fmtDuration(sessionTime);
+    
+    // Update student info in scoreboard
+    const scoreboardStudentName = document.getElementById('scoreboardStudentName');
+    const scoreboardStudentId = document.getElementById('scoreboardStudentId');
+    if (scoreboardStudentName) {
+      scoreboardStudentName.textContent = studentInfo.name || 'Not set';
+    }
+    if (scoreboardStudentId) {
+      scoreboardStudentId.textContent = studentInfo.id || 'Not provided';
+    }
+    
+    if (solves.length > 0) {
+      const avgTime = sessionTime / solves.length;
+      document.getElementById('avgTime').textContent = fmtDuration(avgTime);
+    }
+  }
+
+  function renderChallengeStatus() {
+    CHALLENGES.forEach(challenge => {
+      const statusElement = document.getElementById(`status-${challenge.id.replace(/[^a-z-]/g, '')}`);
+      const challengeElement = document.getElementById(`challenge-${challenge.id}`);
+      const isSolved = solves.some(s => s.id === challenge.id);
+      const isUnlocked = isChallengeUnlocked(challenge.id);
+      
+      if (statusElement) {
+        statusElement.textContent = isSolved ? 'Solved' : 'Unsolved';
+        statusElement.className = `pill ${isSolved ? 'solved' : 'unsolved'}`;
+      }
+      
+      if (challengeElement) {
+        if (!isUnlocked) {
+          challengeElement.classList.add('challenge-locked');
+        } else {
+          challengeElement.classList.remove('challenge-locked');
+        }
+      }
+    });
+  }
+
+  function renderProgress() {
+    const completedChallenges = solves.length;
+    const totalChallenges = CHALLENGES.length;
+    const percentage = (completedChallenges / totalChallenges) * 100;
+    
+    document.getElementById('overallProgress').style.width = `${percentage}%`;
+    document.getElementById('progressText').textContent = `${completedChallenges}/${totalChallenges} challenges completed`;
+  }
+
+  function renderHints() {
+    const container = document.getElementById('hintsContainer');
+    container.innerHTML = '';
+    
+    CHALLENGES.forEach(challenge => {
+      const isUnlocked = isChallengeUnlocked(challenge.id);
+      const isSolved = solves.some(s => s.id === challenge.id);
+      
+      if (!isUnlocked) return;
+      
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.opacity = isSolved ? '0.7' : '1';
+      
+      const challengeHints = HINTS[challenge.id] || [];
+      const usedHints = hintsUsed[challenge.id] || [];
+      
+      let hintsHtml = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+          <strong>${challenge.title}</strong>
+          <span class="pill">${challenge.category}</span>
+        </div>
+      `;
+      
+      if (challengeHints.length === 0) {
+        hintsHtml += '<p class="muted">No hints available for this challenge.</p>';
+      } else {
+        challengeHints.forEach((hint, index) => {
+          const isUsed = usedHints.includes(index);
+          hintsHtml += `
+            <div style="margin:8px 0; padding:8px; border-radius:8px; background:${isUsed ? '#1a1a2e' : '#0b1326'};">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <span>Hint ${index + 1}</span>
+                <div>
+                  <span class="muted">-${hint.cost} pts</span>
+                  ${!isUsed && !isSolved ? `<button class="btn secondary" style="margin-left:8px; padding:4px 8px; font-size:12px" onclick="useHint('${challenge.id}', ${index})">Reveal</button>` : ''}
+                </div>
+              </div>
+              ${isUsed ? `<div class="muted" style="margin-top:8px">${hint.text}</div>` : ''}
+            </div>
+          `;
+        });
+      }
+      
+      card.innerHTML = hintsHtml;
+      container.appendChild(card);
+    });
+  }
+
+  function renderStudentInfo() {
+    const studentDisplay = document.getElementById('studentDisplay');
+    const studentNameInput = document.getElementById('studentName');
+    const studentIdInput = document.getElementById('studentId');
+    const studentSetupCard = document.getElementById('studentSetupCard');
+    
+    if (studentDisplay) {
+      if (studentInfo.name) {
+        studentDisplay.textContent = studentInfo.name;
+        studentDisplay.parentElement.style.cursor = 'pointer';
+      } else {
+        studentDisplay.textContent = 'Click to set name';
+        studentDisplay.parentElement.style.cursor = 'pointer';
+      }
+    }
+    
+    if (studentNameInput) {
+      studentNameInput.value = studentInfo.name || '';
+    }
+    if (studentIdInput) {
+      studentIdInput.value = studentInfo.id || '';
+    }
+    
+    // Show/hide setup card based on whether student info is set
+    if (studentSetupCard) {
+      if (!studentInfo.name) {
+        studentSetupCard.style.border = '2px solid var(--hack-green)';
+        studentSetupCard.style.boxShadow = '0 0 20px rgba(0,255,156,0.3)';
+      } else {
+        studentSetupCard.style.border = '';
+        studentSetupCard.style.boxShadow = '';
+      }
+    }
+  }
+
+  function updateTimer() {
+    const sessionTime = Date.now() - sessionStart;
+    document.getElementById('sessionTimer').textContent = `Session: ${fmtDuration(sessionTime)}`;
+  }
+
+  // ===== Event Handlers =====
+  function submitFlag(challengeId, flag) {
+    if (!hasFlagFormat(flag)) {
+      showNotification('Invalid flag format. Use flag{...}', 'error');
+      return;
+    }
+    
+    if (!isChallengeUnlocked(challengeId)) {
+      showNotification('This challenge is locked!', 'error');
+      return;
+    }
+    
+    const expected = DEMO_FLAGS[challengeId];
+    if (flag === expected) {
+      if (solves.some(s => s.id === challengeId)) {
+        showNotification('Challenge already solved! ✅', 'error');
+      } else {
+        const points = getChallengePoints(challengeId);
+        solves.push({ id: challengeId, when: new Date().toISOString() });
+        saveState();
+        unlockNextChallenge();
+        showNotification(`🎉 Correct! +${points} points`, 'success');
+        render();
+      }
+    } else {
+      showNotification('Incorrect flag. Keep trying! 🔍', 'error');
+    }
+  }
+
+  window.useHint = function(challengeId, hintIndex) {
+    if (!hintsUsed[challengeId]) hintsUsed[challengeId] = [];
+    
+    if (hintsUsed[challengeId].includes(hintIndex)) {
+      showNotification('Hint already used!', 'error');
+      return;
+    }
+    
+    hintsUsed[challengeId].push(hintIndex);
+    saveState();
+    
+    const hint = HINTS[challengeId][hintIndex];
+    showNotification(`💡 Hint revealed! -${hint.cost} pts`, 'success');
+    render();
+  };
+
+  // ===== Interactive Elements =====
+  
+  // SQLi Demo Enhancement
+  function setupSqliDemo() {
+    const loginBtn = document.getElementById('loginBtn');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const sqliUser = document.getElementById('sqliUser');
+    const sqliPass = document.getElementById('sqliPass');
+    const sqliLog = document.getElementById('sqliLog');
+    
+    if (!loginBtn || !sqliLog) return;
+    
+    loginBtn.addEventListener('click', () => {
+      const username = sqliUser.value.trim();
+      const password = sqliPass.value.trim();
+      
+      const logLines = [];
+      logLines.push(`[${new Date().toLocaleTimeString()}] Login attempt initiated`);
+      logLines.push(`Query: SELECT * FROM users WHERE username='${username}' AND password='${password}'`);
+      logLines.push('');
+      
+      // Check for common SQLi payloads
+      const sqliPatterns = [
+        "' OR '1'='1",
+        "' OR 1=1",
+        "admin'--",
+        "' UNION SELECT",
+        "'; DROP TABLE",
+        "' OR 'a'='a"
+      ];
+      
+      const isSqli = sqliPatterns.some(pattern => 
+        username.includes(pattern) || password.includes(pattern)
+      );
+      
+      if (isSqli) {
+        logLines.push('⚠️  SQL Injection detected!');
+        logLines.push('🔓 Authentication bypass successful');
+        logLines.push('👤 Logged in as: administrator');
+        logLines.push('');
+        logLines.push('📋 Available data:');
+        logLines.push('  - User accounts: 1,247 records');
+        logLines.push('  - Customer data: 8,934 records');
+        logLines.push('  - Payment info: 3,456 records');
+        logLines.push('');
+        logLines.push(`🚩 FLAG EXTRACTED: ${DEMO_FLAGS['web-sqli']}`);
+        logLines.push('');
+        logLines.push('💡 Vulnerability: Parameterized queries not implemented');
+      } else if (username === 'admin' && password === 'admin123') {
+        logLines.push('✅ Valid credentials - Login successful');
+        logLines.push('👤 Welcome, Administrator');
+      } else {
+        logLines.push('❌ Invalid credentials');
+        logLines.push('🔒 Access denied');
+        logLines.push('');
+        logLines.push('💡 Try SQL injection techniques...');
+      }
+      
+      sqliLog.value = logLines.join('\n');
+      sqliLog.scrollTop = sqliLog.scrollHeight;
+    });
+    
+    if (clearLogBtn) {
+      clearLogBtn.addEventListener('click', () => {
+        sqliLog.value = '';
+        sqliUser.value = '';
+        sqliPass.value = '';
+      });
+    }
+  }
+
+  // File Downloads (Simulated)
+  function setupDownloads() {
+    const downloads = [
+      { id: 'download-pcap', filename: 'network_traffic.pcap', size: '2.4 MB' },
+      { id: 'download-e01', filename: 'suspect_drive.E01', size: '450 MB' },
+      { id: 'download-memory', filename: 'memory_dump.raw', size: '8.2 GB' },
+      { id: 'download-vm', filename: 'vulnerable_vm.ova', size: '1.8 GB' }
+    ];
+    
+    downloads.forEach(download => {
+      const btn = document.getElementById(download.id);
+      if (btn) {
+        btn.addEventListener('click', () => {
+          showNotification(`📦 Download started: ${download.filename} (${download.size})`, 'success');
+          // In a real implementation, this would trigger actual file downloads
+        });
+      }
+    });
+  }
+
+  // Export Functions
+  function exportData(format) {
+    const data = {
+      studentInfo: studentInfo,
+      solves: solves,
+      hintsUsed: hintsUsed,
+      sessionStart: sessionStart,
+      totalScore: solves.reduce((sum, solve) => sum + getChallengePoints(solve.id), 0),
+      exportTime: new Date().toISOString(),
+      sessionDuration: Date.now() - sessionStart
+    };
+    
+    let content, filename, mimeType;
+    
+    if (format === 'csv') {
+      const headers = ['student_name', 'student_id', 'challenge_id', 'challenge_title', 'points_earned', 'completed_time', 'hints_used'];
+      const rows = [headers.join(',')];
+      
+      solves.forEach(solve => {
+        const challenge = CHALLENGES.find(c => c.id === solve.id);
+        const points = getChallengePoints(solve.id);
+        const hints = (hintsUsed[solve.id] || []).length;
+        
+        rows.push([
+          `"${studentInfo.name || 'Unknown'}"`,
+          `"${studentInfo.id || 'N/A'}"`,
+          solve.id,
+          `"${challenge.title}"`,
+          points,
+          solve.when,
+          hints
+        ].join(','));
+      });
+      
+      content = rows.join('\n');
+      filename = `ung_ctf_${studentInfo.name ? studentInfo.name.replace(/[^a-zA-Z0-9]/g, '_') : 'anonymous'}_${Date.now()}.csv`;
+      mimeType = 'text/csv';
+    } else {
+      content = JSON.stringify(data, null, 2);
+      filename = `ung_ctf_${studentInfo.name ? studentInfo.name.replace(/[^a-zA-Z0-9]/g, '_') : 'anonymous'}_${Date.now()}.json`;
+      mimeType = 'application/json';
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification(`📊 Data exported: ${filename}`, 'success');
+  }
+
+  // ===== Event Listeners Setup =====
+  function setupEventListeners() {
+    // Tab switching
+    document.querySelectorAll('.tabbtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tabbtn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
+        const target = document.getElementById('tab-' + tab);
+        if (target) target.classList.remove('hidden');
+      });
+    });
+    
+    // Flag submissions
+    document.querySelectorAll('[data-flag-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-flag-id');
+        const input = document.getElementById('flag-' + id);
+        submitFlag(id, input?.value || '');
+      });
+    });
+    
+    // Enter key support for flag inputs
+    document.querySelectorAll('input[id^="flag-"]').forEach(input => {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const id = input.id.replace('flag-', '');
+          submitFlag(id, input.value);
+        }
+      });
+    });
+    
+    // Export buttons
+    document.getElementById('exportCsvBtn')?.addEventListener('click', () => exportData('csv'));
+    document.getElementById('exportJsonBtn')?.addEventListener('click', () => exportData('json'));
+    
+    // Student info management
+    document.getElementById('studentInfo')?.addEventListener('click', () => {
+      // Switch to overview tab to show student setup
+      document.querySelectorAll('.tabbtn').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-tab="overview"]').classList.add('active');
+      document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
+      document.getElementById('tab-overview').classList.remove('hidden');
+      
+      // Focus on name input
+      setTimeout(() => {
+        document.getElementById('studentName')?.focus();
+      }, 100);
+    });
+    
+    document.getElementById('saveStudentInfo')?.addEventListener('click', () => {
+      const name = document.getElementById('studentName')?.value.trim() || '';
+      const id = document.getElementById('studentId')?.value.trim() || '';
+      
+      if (!name) {
+        showNotification('❌ Please enter your full name', 'error');
+        document.getElementById('studentName')?.focus();
+        return;
+      }
+      
+      studentInfo.name = name;
+      studentInfo.id = id;
+      saveState();
+      render();
+      
+      showNotification(`👤 Welcome, ${name}! Information saved.`, 'success');
+    });
+    
+    document.getElementById('clearStudentInfo')?.addEventListener('click', () => {
+      if (confirm('Clear student information?')) {
+        studentInfo = { name: '', id: '' };
+        saveState();
+        render();
+        showNotification('🗑️ Student information cleared', 'success');
+      }
+    });
+    
+    // Enter key support for student info
+    document.getElementById('studentName')?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('studentId')?.focus();
+      }
+    });
+    
+    document.getElementById('studentId')?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('saveStudentInfo')?.click();
+      }
+    });
+    
+    // Admin functions
+    document.getElementById('resetBtn')?.addEventListener('click', () => {
+      if (confirm('⚠️ This will reset all progress. Are you sure?')) {
+        localStorage.clear();
+        solves = [];
+        hintsUsed = {};
+        studentInfo = { name: '', id: '' };
+        unlockedChallenges = ["net-pcap"];
+        sessionStart = Date.now();
+        localStorage.setItem(LS_SESSION_START, sessionStart.toString());
+        saveState();
+        render();
+        showNotification('🔄 All progress and student info reset', 'success');
+      }
+    });
+    
+    // Backup/Restore
+    document.getElementById('backupBtn')?.addEventListener('click', () => exportData('json'));
+    
+    document.getElementById('restoreBtn')?.addEventListener('click', () => {
+      document.getElementById('restoreFile').click();
+    });
+    
+    document.getElementById('restoreFile')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          
+          if (data.solves && data.hintsUsed) {
+            solves = data.solves;
+            hintsUsed = data.hintsUsed;
+            if (data.sessionStart) sessionStart = data.sessionStart;
+            if (data.studentInfo) studentInfo = data.studentInfo;
+            
+            saveState();
+            render();
+            showNotification('📂 Data restored successfully', 'success');
+          } else {
+            showNotification('❌ Invalid backup file format', 'error');
+          }
+        } catch (err) {
+          showNotification('❌ Error reading backup file', 'error');
+        }
+      };
+      reader.readAsText(file);
+    });
+    
+    // Development mode functions
+    document.getElementById('unlockAllBtn')?.addEventListener('click', () => {
+      unlockedChallenges = CHALLENGES.map(c => c.id);
+      saveState();
+      render();
+      showNotification('🔓 All challenges unlocked', 'success');
+    });
+    
+    document.getElementById('solveFirstBtn')?.addEventListener('click', () => {
+      if (!solves.some(s => s.id === 'net-pcap')) {
+        submitFlag('net-pcap', DEMO_FLAGS['net-pcap']);
+      } else {
+        showNotification('First challenge already solved', 'error');
+      }
+    });
+    
+    document.getElementById('addRandomScoreBtn')?.addEventListener('click', () => {
+      const unsolvedChallenges = CHALLENGES.filter(c => !solves.some(s => s.id === c.id));
+      if (unsolvedChallenges.length > 0) {
+        const randomChallenge = unsolvedChallenges[Math.floor(Math.random() * unsolvedChallenges.length)];
+        submitFlag(randomChallenge.id, DEMO_FLAGS[randomChallenge.id]);
+      } else {
+        showNotification('All challenges already solved', 'error');
+      }
+    });
+    
+    // Diagnostics
+    document.getElementById('runTestsBtn')?.addEventListener('click', runDiagnostics);
+  }
+
+  // ===== Diagnostic System =====
+  function runDiagnostics() {
+    const results = [];
+    const addTest = (name, condition, info = '') => {
+      results.push({ name, pass: !!condition, info });
+    };
+    
+    // Basic functionality tests
+    addTest('LocalStorage available', typeof Storage !== 'undefined');
+    addTest('Flag format validation', hasFlagFormat('flag{test}'));
+    addTest('Invalid flag rejection', !hasFlagFormat('invalid_flag'));
+    addTest('Time formatting', fmtDuration(3661000) === '01:01:01');
+    addTest('Challenge data integrity', CHALLENGES.length === 8);
+    addTest('Demo flags available', Object.keys(DEMO_FLAGS).length === 8);
+    addTest('Hint system loaded', Object.keys(HINTS).length === 8);
+    
+    // State tests
+    addTest('Solves array valid', Array.isArray(solves));
+    addTest('Hints object valid', typeof hintsUsed === 'object');
+    addTest('Session timer active', sessionStart > 0);
+    addTest('First challenge unlocked', unlockedChallenges.includes('net-pcap'));
+    
+    // UI tests
+    addTest('Score badge present', !!document.getElementById('scoreBadge'));
+    addTest('Notification system', !!document.getElementById('notification'));
+    addTest('Timer display', !!document.getElementById('sessionTimer'));
+    addTest('Progress bar', !!document.getElementById('overallProgress'));
+    
+    // Render results
+    const container = document.getElementById('testResults');
+    container.innerHTML = '';
+    
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>Test</th><th>Status</th><th>Details</th></tr></thead>';
+    
+    const tbody = document.createElement('tbody');
+    results.forEach(test => {
+      const tr = document.createElement('tr');
+      const statusClass = test.pass ? 'solved' : 'unsolved';
+      tr.innerHTML = `
+        <td>${test.name}</td>
+        <td><span class="pill ${statusClass}">${test.pass ? 'PASS' : 'FAIL'}</span></td>
+        <td class="muted">${test.info}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    
+    table.appendChild(tbody);
+    container.appendChild(table);
+    
+    const passCount = results.filter(r => r.pass).length;
+    showNotification(`🔧 Diagnostics complete: ${passCount}/${results.length} tests passed`, 
+      passCount === results.length ? 'success' : 'error');
+  }
+
+  // ===== Initialization =====
+  function initialize() {
+    loadState();
+    setupEventListeners();
+    setupSqliDemo();
+    setupDownloads();
+    render();
+    
+    // Start session timer
+    setInterval(updateTimer, 1000);
+    
+    // Welcome message
+    setTimeout(() => {
+      showNotification('🎯 CTF Platform loaded. Good luck!', 'success');
+    }, 500);
+    
+    console.log('🛡️ UNG Capstone CTF Platform initialized');
+    console.log(`📊 Session started: ${new Date(sessionStart).toLocaleString()}`);
+    console.log(`🎯 Challenges unlocked: ${unlockedChallenges.length}/${CHALLENGES.length}`);
+    console.log(`✅ Challenges solved: ${solves.length}/${CHALLENGES.length}`);
+  }
+
+  // Start the application
+  initialize();
+  </script>
+</body>
+</html>
